@@ -1,0 +1,166 @@
+---
+title: "Assignment1-Kesarwani-Hospital Data Wrangling and Visualization."
+author: "Darshika Kesarwani"
+date: "3/11/2019"
+output: html_document
+---
+
+## Data Description
+
+
+**Data source** : http://www.mm-c.me/mdsi/hospitals93to98.csv
+
+**Background** :- Data used for our analysis is pulled up from the Australian Institute of Health and Welfare Principal Diagnosis Data Cubes.
+
+**Variables** :- The variables in data cube are as follows
+
+ + IcdChapter - It consists Major diagnostic categories for which a bed is                        reserved in Hospital for Patient
+ + Field - It consist of whether bed has Patient or it was not occupied 
+ + FY1993 - It contains the total bed days for that year 1993 whether it has                  patient or it was not occupied
+ + FY1994 - It contains the total bed days for that year 1994 whether it has                  patient or it was not occupied
+ + FY1995 - It contains the total bed days for that year 1995 whether it has                  patient or it was not occupied
+ + FY1996 - It contains the total bed days for that year 1996 whether it has                  patient or it was not occupied
+ + FY1997 - It contains the total bed days for that year 1997 whether it has                  patient or it was not occupied
+ + FY1998 - It contains the total bed days for that year 1998 whether it has                  patient or it was not occupied
+
+**Decsription** :- The data source here is used by Hospital to determine the bed                     occupancy rate at Hospital for different years. However, data                     used here is not tidy not all observations in differnt row like                    for e.g. field variable here . Column headers are value like                      FY1997 instead of variable name .Also count unders years                          variables are in categorical format instead of numeric format.
+
+## Load the Data
+We have downloaded the csv data set into our loacl machine from the source http://www.mm-c.me/mdsi/hospitals93to98.csv and will load our csv file into R using read.csv command.
+ 
+```{r load}
+# Set working directory for every chunk
+knitr::opts_knit$set(root_dir="/Users/darsh/Documents/Advanced Big data/Assignment/", echo = TRUE) 
+# Load CSV file into Rstudio
+med.df <- read.csv("Assignment1-Kesarwani-Hospital Data Wrangling and Visualization.csv")
+```
+
+## Untidy Data
+
+``````{r untidy}
+# View Top 5 rows of our dataset
+head(med.df)
+```
+<br><br>
+
+### First Violation: Years are in different Columns
+
+We can see years are in different columns . We Will move years into single column using 'gather' from tidyverse and put value corresponding to it.
+
+```{r gather, message=FALSE, warning=FALSE}
+# Load library tidyverse
+library(tidyverse)
+# Gather different years into one variable
+years.df <- gather(med.df, years, value, FY1993:FY1998, convert = TRUE)
+# View data after gather
+head(years.df)
+```
+
+
+### Second Violation: Multiple variables are stored in one column.
+
+We can see PatientDays and Separations are in same columns . We will spread them into two different columns using spread
+
+```{r spread, message=FALSE, warning=FALSE}
+# Spread field into different variable
+var.df  <- spread(years.df, Field, value)
+# View data after spread
+head(var.df)
+```
+
+### Third Violation: Disease type and ID are stored in same column.
+
+We can see under "IcdChapter" both Disease ID and Disease type are stored in same cell. We need to divide them by using 'separate'
+
+```{r separate}
+# Separate into id and cause
+final.new <- separate(var.df,IcdChapter, c("id", "cause"), ". ", convert = TRUE)
+# View data after spread
+head(final.new)
+```
+
+### Data Cleaning: Convert Days type from categoric to numeric value
+
+```{r cleaning, message=FALSE, warning=FALSE}
+# Find which variables are categoric and numeric
+split(names(final.new),sapply(final.new, function(x) paste(class(x), collapse=" "))) 
+# Convert PatientDays and Seperations variable type to numeric and remove comma
+final.new$PatientDays <- as.numeric(gsub(",", "", final.new$PatientDays))
+final.new$Separations <- as.numeric(gsub(",", "", final.new$Separations)) 
+head(final.new)
+# Save Final tidy file
+med.df <- write.csv(final.new, "final.new.csv")
+```
+
+### Tidy Data
+
+Our final dataframe final.new is clean as it follows all the principles of Tidy Data as mentioned below:-
+
++ Column headers are not values instead they are variable names.
+
++ Multiple variables are not stored in one column but they are spread.Each         observation forms a row
+
++ Every variable has its own column
+
+
+## Data Visualization
+
+### Histogram
+```{r histogram, message=FALSE, warning=FALSE}
+# Load ggplot libary
+library(ggplot2)
+# Group Patientdays and SeperationDays by Years and store it
+group.df <- final.new %>%
+  group_by(years) %>%
+  summarize(PatDay_Sum = sum(PatientDays), SepDay_Sum = sum(Separations)) 
+#Change group.df to dataframe
+group.df <- as.data.frame(group.df)
+
+#Install Packages reshape and ggthemes
+# install.packages("reshape")
+# install.packages("ggthemes")
+#Load Library reshape and ggthemes
+library(reshape)
+library(ggthemes)
+
+# Use melt to plot different variable in same plot
+var <- melt(group.df[,c("years","PatDay_Sum", "SepDay_Sum")], id.vars = 1)
+
+
+# Plot histogram
+ggplot(var, aes(x = years, y = value)) + 
+  geom_histogram(aes(fill = variable), 
+                 stat = "identity", position = "dodge") + 
+  theme_economist() +
+  scale_y_continuous(labels = scales::comma) + 
+  xlab("Years") +
+  ylab("Count") + ggtitle("Years vs Patient days") 
+
+```
+
+**Explanation** - Above graph give us clear view of number of PatientDays and Separations for every year. We can see the comparison clearly and it shows year FY1998 has the maximum number of PatientDays as well as Separations.
+
+It also tell for every Number of PatientDays are much higher then Separations .
+
+### Box Plot
+
+```{r scatterplot, message=FALSE, warning=FALSE}
+# Disease vs SeperationDays
+ggplot(final.new, aes(x=cause, y=Separations,fill=cause)) + geom_boxplot() + 
+    theme(axis.text.x  = element_text(angle=90, vjust=1))+ xlab("Diseases") +
+  ylab("Separation Days") + ggtitle("Disease vs Separations") + geom_boxplot() + 
+    scale_y_continuous(labels = scales::comma) + theme(
+  panel.background = element_rect(fill = "cornsilk",
+                                colour = "cornsilk",
+                                size = 1, linetype = "solid"))
+#Disease vs PatientDays
+ggplot(final.new, aes(x=cause, y=PatientDays,fill=cause)) + geom_boxplot() + 
+    theme(axis.text.x  = element_text(angle=90, vjust=1)) + xlab("Disease") +
+  ylab("Patient Days") + ggtitle("Disease vs PatientDays") + geom_boxplot() + 
+    scale_y_continuous(labels = scales::comma) + theme(
+  panel.background = element_rect(fill = "cornsilk",
+                                colour = "cornsilk",
+                                size = 1, linetype = "solid"))
+```
+
+**Explanation** - This Box Plot is divided into two parts where first plot shows number of SeparationDays for each Disease and second plot shows number of PatientDays for each Disease.This plot clearly defines the median and outliers value for each Disease. It shows most of the Patients occupy beds for 'Menta' Disease.
