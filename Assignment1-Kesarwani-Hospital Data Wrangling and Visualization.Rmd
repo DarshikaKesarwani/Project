@@ -32,7 +32,7 @@ We have downloaded the csv data set into our loacl machine from the source http:
 # Set working directory for every chunk
 knitr::opts_knit$set(root_dir="/Users/darsh/Documents/Advanced Big data/Assignment/", echo = TRUE) 
 # Load CSV file into Rstudio
-med.df <- read.csv("Assignment1-Kesarwani-Hospital Data Wrangling and Visualization.csv")
+med.df <-  read.csv("Assignment1-Kesarwani-Hospital Data Wrangling and Visualization.csv")
 ```
 
 ## Untidy Data
